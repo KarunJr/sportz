@@ -14,17 +14,18 @@ export const matchIdParamSchema = z.object({
   id: z.coerce.number().int().positive(),
 });
 
-const isoDateString = z.string().refine((val) => !isNaN(Date.parse(val)), {
-  message: "Invalid ISO date string",
-});
-
 export const createMatchSchema = z
   .object({
     sport: z.string().min(1),
     homeTeam: z.string().min(1),
     awayTeam: z.string().min(1),
-    startTime: isoDateString,
-    endTime: isoDateString,
+
+    // Validate that the string strictly matches the ISO 8601 datetime format (e.g., "YYYY-MM-DDTHH:mm:ss.sssZ").
+    // The Zod `z.iso.datetime()` method ensures that the string is a valid ISO 8601 date-time string.
+    // z.iso.datetime()
+    startTime: z.iso.datetime(),
+    endTime: z.iso.datetime(),
+    
     homeScore: z.coerce.number().int().nonnegative().optional(),
     awayScore: z.coerce.number().int().nonnegative().optional(),
   })
@@ -40,7 +41,7 @@ export const createMatchSchema = z
     }
   });
 
-  export const updateScoreSchema = z.object({
-    homeScore: z.coerce.number().int().nonnegative(),
-    awayScore: z.coerce.number().int().nonnegative()
-  })
+export const updateScoreSchema = z.object({
+  homeScore: z.coerce.number().int().nonnegative(),
+  awayScore: z.coerce.number().int().nonnegative(),
+});

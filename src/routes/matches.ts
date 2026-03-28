@@ -15,7 +15,7 @@ matchRouter.get("/", async (req: Request, res: Response) => {
   if (!parsed.success) {
     return res.status(400).json({
       error: "Invalid query.",
-      details: JSON.stringify(parsed.error),
+      details: parsed.error.issues,
     });
   }
   const limit = Math.min(parsed.data.limit ?? 50, MAX_LIMIT);
@@ -27,6 +27,7 @@ matchRouter.get("/", async (req: Request, res: Response) => {
       .limit(limit);
     res.json({ data });
   } catch (error) {
+    console.error("Failed to list matches", error)
     res.status(500).json({
       error: "Failed to list matches",
     });
@@ -38,26 +39,28 @@ matchRouter.post("/", async (req: Request, res: Response) => {
   if (!parsed.success) {
     return res.status(400).json({
       error: "Invalid payload.",
-      details: JSON.stringify(parsed.error),
+      details: parsed.error.issues,
     });
   }
+  const { startTime, endTime, homeScore, awayScore } = parsed.data;
 
   try {
     const [event] = await db
       .insert(matches)
       .values({
         ...parsed.data,
-        startTime: new Date(parsed.data.startTime),
-        endTime: new Date(parsed.data.endTime),
-        homeScore: parsed.data.homeScore ?? 0,
-        awayScore: parsed.data.awayScore ?? 0,
+        startTime: new Date(startTime),
+        endTime: new Date(endTime),
+        homeScore: homeScore ?? 0,
+        awayScore: awayScore ?? 0,
       })
       .returning();
     return res.status(201).json({ data: event });
   } catch (error) {
+    console.error("Failed to create match:", error);
     res.status(500).json({
       error: "Failed to create match.",
-      details: JSON.stringify(error),
+      details: error instanceof Error ? error.message : String(error),
     });
   }
 });
