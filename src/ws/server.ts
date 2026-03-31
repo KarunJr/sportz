@@ -1,6 +1,8 @@
 import { WebSocket, WebSocketServer } from "ws";
 import { Server } from "node:http";
 import type { Match } from "../types/express.js";
+import { wsArcjet } from "../arcjet.js";
+import { Request } from "express";
 
 interface ExtendedWebSocket extends WebSocket {
   isAlive?: boolean;
@@ -27,7 +29,24 @@ export function attachWebSocketServer(server: Server) {
     maxPayload: 1024 * 1024,
   });
 
-  wss.on("connection", (socket: ExtendedWebSocket) => {
+  wss.on("connection", async (socket: ExtendedWebSocket, req: Request) => {
+    if (wsArcjet) {
+      try {
+        const decision = await wsArcjet.protect(req);
+        if (decision.isDenied()) {
+          const code = decision.reason.isRateLimit() ? 1013 : 1008;
+          const reason = decision.reason.isRateLimit()
+            ? "Rate limit exceeded"
+            : "Access Denied";
+          socket.close(code, reason);
+          return;
+        }
+      } catch (error) {
+        console.error("WS connection error", error);
+        socket.close(1011, "Server security error");
+        return;
+      }
+    }
     // Hearbeat (PingPong)
     socket.isAlive = true;
     socket.on("pong", () => {
