@@ -60,7 +60,7 @@ export function securityMiddleWare() {
       }
     } catch (error) {
       console.error("Arcjet middleware error", error);
-      return res.status(503).json({ error: "Servie unavailable" });
+      return res.status(503).json({ error: "Service unavailable" });
     }
     next();
   };

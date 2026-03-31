@@ -2,7 +2,8 @@ import { WebSocket, WebSocketServer } from "ws";
 import { Server } from "node:http";
 import type { Match } from "../types/express.js";
 import { wsArcjet } from "../arcjet.js";
-import { Request } from "express";
+import { IncomingMessage } from "node:http";
+import net from "node:net";
 
 interface ExtendedWebSocket extends WebSocket {
   isAlive?: boolean;
@@ -24,29 +25,45 @@ function broadcast(wss: WebSocketServer, payload: unknown) {
 
 export function attachWebSocketServer(server: Server) {
   const wss = new WebSocketServer({
-    server,
+    noServer: true,
     path: "/ws",
     maxPayload: 1024 * 1024,
   });
 
-  wss.on("connection", async (socket: ExtendedWebSocket, req: Request) => {
-    if (wsArcjet) {
-      try {
-        const decision = await wsArcjet.protect(req);
-        if (decision.isDenied()) {
-          const code = decision.reason.isRateLimit() ? 1013 : 1008;
-          const reason = decision.reason.isRateLimit()
-            ? "Rate limit exceeded"
-            : "Access Denied";
-          socket.close(code, reason);
-          return;
-        }
-      } catch (error) {
-        console.error("WS connection error", error);
-        socket.close(1011, "Server security error");
+  server.on(
+    "upgrade",
+    async (req: IncomingMessage, socket: net.Socket, head: Buffer) => {
+      const { pathname } = new URL(req.url!, `http://${req.headers.host}`);
+      if (pathname !== "/ws") {
         return;
       }
-    }
+
+      if (wsArcjet) {
+        try {
+          const decision = await wsArcjet.protect(req);
+          if (decision.isDenied()) {
+            if (decision.reason.isRateLimit()) {
+              socket.write("HTTP/1.1 429 Too Many Requests\r\n\r\n");
+            } else {
+              socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+            }
+            socket.destroy();
+            return;
+          }
+        } catch (error) {
+          console.error("WS upgrade protection error", error);
+          socket.write("HTTP/1.1 500 Internal Server Error\r\n\r\n");
+          socket.destroy();
+          return;
+        }
+      }
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit("connection", ws, req);
+      });
+    },
+  );
+
+  wss.on("connection", async (socket: ExtendedWebSocket) => {
     // Hearbeat (PingPong)
     socket.isAlive = true;
     socket.on("pong", () => {
