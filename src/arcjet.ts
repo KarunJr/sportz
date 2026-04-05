@@ -2,7 +2,7 @@ import arcjet, { detectBot, shield, slidingWindow } from "@arcjet/node";
 import { NextFunction, Request, Response } from "express";
 
 const arcjetKey = process.env.ARCJET_KEY;
-const arcjetMode = process.env.ARCJET_MODE === "DRY_RUN" ? "DRY_RUN" : "LIVE";
+const arcjetMode = process.env.ARCJET_MODE === "development" ? "DRY_RUN" : "LIVE";
 
 if (!arcjetKey) throw new Error("ARCJET_KEY Environment variable is missing.");
 
@@ -49,13 +49,14 @@ export const wsArcjet = arcjetKey
 export function securityMiddleWare() {
   return async (req: Request, res: Response, next: NextFunction) => {
     if (!httpArcjet) return next();
-
+    console.log(arcjetMode);
     try {
       const decision = await httpArcjet.protect(req);
       if (decision.isDenied()) {
         if (decision.reason.isRateLimit()) {
           return res.status(429).json({ error: "Too many requests." });
         }
+        console.log("Decision", decision);
         return res.status(403).json({ error: "Forbidden." });
       }
     } catch (error) {
