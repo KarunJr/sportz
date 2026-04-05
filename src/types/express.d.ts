@@ -1,4 +1,4 @@
-export type Match = {
+export type IMatch = {
   id: number;
   sport: string;
   homeTeam: string;
@@ -10,11 +10,26 @@ export type Match = {
   awayScore: number;
   createdAt: Date;
 };
+export interface ICommentary {
+  id: number;
+  matchId: number;
+  minute?: number | null;
+  sequence?: number | null;
+  period?: string | null;
+  eventType?: string | null;
+  actor?: string | null;
+  team?: string | null;
+  message: string;
+  metaData?: unknown;
+  tags?: string[] | null;
+  createdAt: Date;
+}
 export {};
 declare global {
   namespace Express {
     interface Locals {
-      broadcastMatchCreated: (match: Match) => void;
+      broadcastMatchCreated: (match: IMatch) => void;
+      broadcastCommentary: (matchId: number, comment: ICommentary) => void;
     }
   }
 }
